@@ -132,3 +132,73 @@ export function bstSearch(
   steps.push({ type: 'NOT_FOUND', nodeValue: last, treeSnapshot: snapshot })
   return { steps }
 }
+
+// ── Traversals ────────────────────────────────────────────────────────────────
+// Each traversal builds a TRAVERSE step per node.
+// `visitedPath` accumulates the values already emitted so the canvas can show
+// a "trail" of previously visited nodes.
+
+import { TraversalType } from '../types/tree'
+
+function traverseInOrder(
+  node: TreeNode | null,
+  snapshot: TreeNode | null,
+  kind: TraversalType,
+  visited: number[],
+  steps: AnimationStep[]
+): void {
+  if (!node) return
+  traverseInOrder(node.left,  snapshot, kind, visited, steps)
+  steps.push({ type: 'TRAVERSE', nodeValue: node.value, label: kind, visitedPath: [...visited], treeSnapshot: snapshot })
+  visited.push(node.value)
+  traverseInOrder(node.right, snapshot, kind, visited, steps)
+}
+
+function traversePreOrder(
+  node: TreeNode | null,
+  snapshot: TreeNode | null,
+  kind: TraversalType,
+  visited: number[],
+  steps: AnimationStep[]
+): void {
+  if (!node) return
+  steps.push({ type: 'TRAVERSE', nodeValue: node.value, label: kind, visitedPath: [...visited], treeSnapshot: snapshot })
+  visited.push(node.value)
+  traversePreOrder(node.left,  snapshot, kind, visited, steps)
+  traversePreOrder(node.right, snapshot, kind, visited, steps)
+}
+
+function traversePostOrder(
+  node: TreeNode | null,
+  snapshot: TreeNode | null,
+  kind: TraversalType,
+  visited: number[],
+  steps: AnimationStep[]
+): void {
+  if (!node) return
+  traversePostOrder(node.left,  snapshot, kind, visited, steps)
+  traversePostOrder(node.right, snapshot, kind, visited, steps)
+  steps.push({ type: 'TRAVERSE', nodeValue: node.value, label: kind, visitedPath: [...visited], treeSnapshot: snapshot })
+  visited.push(node.value)
+}
+
+export function inOrderTraversal(root: TreeNode | null):   { steps: AnimationStep[] } {
+  const snapshot = cloneTree(root)
+  const steps: AnimationStep[] = []
+  traverseInOrder(root, snapshot, 'In-order', [], steps)
+  return { steps }
+}
+
+export function preOrderTraversal(root: TreeNode | null):  { steps: AnimationStep[] } {
+  const snapshot = cloneTree(root)
+  const steps: AnimationStep[] = []
+  traversePreOrder(root, snapshot, 'Pre-order', [], steps)
+  return { steps }
+}
+
+export function postOrderTraversal(root: TreeNode | null): { steps: AnimationStep[] } {
+  const snapshot = cloneTree(root)
+  const steps: AnimationStep[] = []
+  traversePostOrder(root, snapshot, 'Post-order', [], steps)
+  return { steps }
+}

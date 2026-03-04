@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AnimationStep, SpeedLevel } from '../types/tree'
+import { AnimationStep, SpeedLevel, TraversalType } from '../types/tree'
 import { AnimationMode } from '../hooks/useAnimationQueue'
 
 export interface Preset {
@@ -36,6 +36,10 @@ function describeStep(step: AnimationStep): string {
     case 'NOT_FOUND': return `${step.nodeValue} not found in tree`
     case 'ROTATE':    return step.label ?? 'Rotation'
     case 'REBALANCE': return step.label ?? 'Checking balance…'
+    case 'TRAVERSE': {
+      const seq = [...(step.visitedPath ?? []), step.nodeValue]
+      return `${step.label}: ${seq.join(' → ')}`
+    }
   }
 }
 
@@ -49,6 +53,7 @@ function stepAccent(step: AnimationStep): string {
     case 'NOT_FOUND': return 'text-red-400'
     case 'ROTATE':    return 'text-violet-400'
     case 'REBALANCE': return 'text-indigo-400'
+    case 'TRAVERSE':  return 'text-cyan-400'
   }
 }
 
@@ -61,6 +66,7 @@ interface Props {
   onInsert: (v: number) => void
   onDelete: (v: number) => void
   onSearch: (v: number) => void
+  onTraverse: (type: TraversalType) => void
   onReset: () => void
   onSpeedChange: (s: SpeedLevel) => void
   onModeToggle: () => void
@@ -71,9 +77,15 @@ interface Props {
   toast: string | null
 }
 
+const TRAVERSALS: { type: TraversalType; short: string; hint: string }[] = [
+  { type: 'In-order',   short: 'In-order',   hint: 'L → Node → R  (sorted for BST)' },
+  { type: 'Pre-order',  short: 'Pre-order',  hint: 'Node → L → R' },
+  { type: 'Post-order', short: 'Post-order', hint: 'L → R → Node' },
+]
+
 export const ControlPanel: React.FC<Props> = ({
   speed, mode, isPlaying, stepInfo,
-  onInsert, onDelete, onSearch, onReset,
+  onInsert, onDelete, onSearch, onTraverse, onReset,
   onSpeedChange, onModeToggle, onPreset,
   onNext, onPrev, onPlayAll,
   toast,
@@ -135,6 +147,24 @@ export const ControlPanel: React.FC<Props> = ({
             font-medium disabled:opacity-40 transition-colors">
           Search
         </button>
+
+        <div className="w-px h-5 bg-gray-600" />
+
+        {/* Traversal */}
+        <span className="text-xs text-gray-500">Traverse:</span>
+        {TRAVERSALS.map(t => (
+          <button
+            key={t.type}
+            onClick={() => onTraverse(t.type)}
+            disabled={opDisabled}
+            title={t.hint}
+            className="px-2.5 py-1.5 rounded border border-cyan-700 hover:border-cyan-400
+              hover:bg-cyan-900/40 text-cyan-300 hover:text-cyan-100 text-xs font-medium
+              disabled:opacity-40 transition-colors"
+          >
+            {t.short}
+          </button>
+        ))}
 
         <div className="w-px h-5 bg-gray-600" />
 

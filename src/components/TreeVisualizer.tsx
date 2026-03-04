@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import { TreeNode, SpeedLevel, TreeInfo } from '../types/tree'
-import { bstInsert, bstDelete, bstSearch, treeHeight, nodeCount } from '../algorithms/bst'
+import { TreeNode, SpeedLevel, TreeInfo, TraversalType } from '../types/tree'
+import { bstInsert, bstDelete, bstSearch, treeHeight, nodeCount, inOrderTraversal, preOrderTraversal, postOrderTraversal } from '../algorithms/bst'
 import { avlInsert, avlDelete, avlSearch, getBalance } from '../algorithms/avl'
 import { useAnimationQueue, AnimationMode } from '../hooks/useAnimationQueue'
 import { ControlPanel } from './ControlPanel'
@@ -97,6 +97,27 @@ export const TreeVisualizer: React.FC = () => {
 
     setBstInfo(prev => ({ ...prev, lastOperation: `Searching ${value}…` }))
     setAvlInfo(prev => ({ ...prev, lastOperation: `Searching ${value}…` }))
+  }, [bstRoot, avlRoot, bstAnim, avlAnim, showToast])
+
+  // ── Traversal ──────────────────────────────────────────────────────────────
+
+  const handleTraversal = useCallback((type: TraversalType) => {
+    if (!bstRoot) { showToast('Tree is empty'); return }
+
+    const fn = type === 'In-order'  ? inOrderTraversal
+             : type === 'Pre-order' ? preOrderTraversal
+             :                        postOrderTraversal
+
+    const bstResult = fn(bstRoot)
+    const avlResult = fn(avlRoot)
+
+    bstAnim.play(bstResult.steps, () =>
+      setBstInfo(computeInfo(bstRoot, `${type} traversal`, false)))
+    avlAnim.play(avlResult.steps, () =>
+      setAvlInfo(computeInfo(avlRoot, `${type} traversal`, true)))
+
+    setBstInfo(prev => ({ ...prev, lastOperation: `${type} traversal…` }))
+    setAvlInfo(prev => ({ ...prev, lastOperation: `${type} traversal…` }))
   }, [bstRoot, avlRoot, bstAnim, avlAnim, showToast])
 
   // ── Reset ──────────────────────────────────────────────────────────────────
@@ -206,6 +227,7 @@ export const TreeVisualizer: React.FC = () => {
         onInsert={handleInsert}
         onDelete={handleDelete}
         onSearch={handleSearch}
+        onTraverse={handleTraversal}
         onReset={handleReset}
         onSpeedChange={setSpeed}
         onModeToggle={handleModeToggle}

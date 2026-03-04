@@ -13,14 +13,18 @@ export type StepType =
   | 'NOT_FOUND'
   | 'ROTATE'
   | 'REBALANCE'
+  | 'TRAVERSE'      // in-order / pre-order / post-order traversal visit
+
+export type TraversalType = 'In-order' | 'Pre-order' | 'Post-order'
 
 export interface AnimationStep {
   type: StepType
   nodeValue: number
-  label?: string                // e.g. "Left Rotation"
+  label?: string                // rotation name or traversal type
   treeSnapshot: TreeNode | null // full tree state for this step
   involvedNodes?: number[]      // other nodes participating in a rotation
-  durationMultiplier?: number   // 1 = normal speed, 2.5 = 2.5× slower (used for rotations)
+  visitedPath?: number[]        // for TRAVERSE: values already visited before this node
+  durationMultiplier?: number   // 1 = normal speed, 2.5 = 2.5× slower
 }
 
 export type RotationType =

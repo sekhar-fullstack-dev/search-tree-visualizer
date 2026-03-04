@@ -15,7 +15,16 @@ const NEUTRAL: NodeColor = { fill: '#334155', stroke: '#64748b', text: '#e2e8f0'
 function getNodeColor(value: number, step: AnimationStep | null): NodeColor {
   if (!step) return NEUTRAL
 
-  // Primary: this node is the main focus of the step
+  // ── Traversal steps ──────────────────────────────────────────────────────
+  if (step.type === 'TRAVERSE') {
+    if (step.nodeValue === value)
+      return { fill: '#164e63', stroke: '#22d3ee', text: '#a5f3fc' }  // bright cyan — current
+    if (step.visitedPath?.includes(value))
+      return { fill: '#0c2a36', stroke: '#0891b2', text: '#67e8f9' }  // dim cyan — trail
+    return NEUTRAL
+  }
+
+  // ── Primary: this node is the main focus of the step ─────────────────────
   if (step.nodeValue === value) {
     switch (step.type) {
       case 'INSERT':    return { fill: '#166534', stroke: '#4ade80', text: '#bbf7d0' }
@@ -28,7 +37,7 @@ function getNodeColor(value: number, step: AnimationStep | null): NodeColor {
     }
   }
 
-  // Secondary: this node is involved in the rotation (but not the pivot)
+  // ── Secondary: involved in rotation but not the pivot ────────────────────
   if (step.involvedNodes?.includes(value)) {
     if (step.type === 'ROTATE')    return { fill: '#3b0764', stroke: '#c084fc', text: '#f3e8ff' }
     if (step.type === 'REBALANCE') return { fill: '#1e1b4b', stroke: '#6366f1', text: '#e0e7ff' }
@@ -39,6 +48,7 @@ function getNodeColor(value: number, step: AnimationStep | null): NodeColor {
 
 function shouldPulse(value: number, step: AnimationStep | null): boolean {
   if (!step) return false
+  if (step.type === 'TRAVERSE' && step.nodeValue === value) return true
   return (
     step.nodeValue === value &&
     (step.type === 'VISIT' || step.type === 'FOUND' || step.type === 'ROTATE' || step.type === 'REBALANCE')
