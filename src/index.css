@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans;
+  }
+}
+
+/* ── SVG node animation classes ─────────────────────────────────────────────
+   transform-box: fill-box  → origin is relative to the element's own bounding box
+   transform-origin: center → animations scale/rotate from the node's own centre
+   This prevents the "jumps to top-left corner" issue on SVG elements.           */
+
+.node-pulse,
+.node-shake {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Pulse: used for VISIT, FOUND, ROTATE */
+@keyframes pulse-glow {
+  0%, 100% { filter: drop-shadow(0 0 3px currentColor); }
+  50%       { filter: drop-shadow(0 0 10px currentColor); }
+}
+.node-pulse {
+  animation: pulse-glow 0.55s ease-in-out infinite;
+}
+
+/* Shake: used for NOT_FOUND */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  40%       { transform: translateX(5px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.node-shake {
+  animation: shake 0.45s ease-in-out;
+}
+
+/* Toast slide-in */
+@keyframes slide-in {
+  from { transform: translateY(-6px) translateX(-50%); opacity: 0; }
+  to   { transform: translateY(0)    translateX(-50%); opacity: 1; }
+}
+.toast-slide-in {
+  animation: slide-in 0.18s ease-out;
+}
