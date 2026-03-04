@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { SpeedLevel } from '../types/tree'
+import { AnimationStep, SpeedLevel } from '../types/tree'
+import { AnimationMode } from '../hooks/useAnimationQueue'
 
 export interface Preset {
   label: string
@@ -25,27 +26,56 @@ export const PRESETS: Preset[] = [
   },
 ]
 
+// Human-readable label for any animation step
+function describeStep(step: AnimationStep): string {
+  switch (step.type) {
+    case 'VISIT':     return `Visiting node ${step.nodeValue}`
+    case 'INSERT':    return `Inserting ${step.nodeValue} into tree`
+    case 'DELETE':    return `Removing node ${step.nodeValue}`
+    case 'FOUND':     return `Found ${step.nodeValue} ✓`
+    case 'NOT_FOUND': return `${step.nodeValue} not found in tree`
+    case 'ROTATE':    return step.label ?? 'Rotation'
+    case 'REBALANCE': return step.label ?? 'Checking balance…'
+  }
+}
+
+// Color accent per step type for the step bar
+function stepAccent(step: AnimationStep): string {
+  switch (step.type) {
+    case 'VISIT':     return 'text-yellow-400'
+    case 'INSERT':    return 'text-emerald-400'
+    case 'DELETE':    return 'text-red-400'
+    case 'FOUND':     return 'text-green-400'
+    case 'NOT_FOUND': return 'text-red-400'
+    case 'ROTATE':    return 'text-violet-400'
+    case 'REBALANCE': return 'text-indigo-400'
+  }
+}
+
 interface Props {
   speed: SpeedLevel
+  mode: AnimationMode
   isPlaying: boolean
+  // step-through info (null when no animation is queued)
+  stepInfo: { bstStep: AnimationStep | null; avlStep: AnimationStep | null; index: number; total: number } | null
   onInsert: (v: number) => void
   onDelete: (v: number) => void
   onSearch: (v: number) => void
   onReset: () => void
   onSpeedChange: (s: SpeedLevel) => void
+  onModeToggle: () => void
   onPreset: (values: number[]) => void
+  onNext: () => void
+  onPrev: () => void
+  onPlayAll: () => void
   toast: string | null
 }
 
 export const ControlPanel: React.FC<Props> = ({
-  speed,
-  isPlaying,
-  onInsert,
-  onDelete,
-  onSearch,
-  onReset,
-  onSpeedChange,
-  onPreset,
+  speed, mode, isPlaying, stepInfo,
+  onInsert, onDelete, onSearch, onReset,
+  onSpeedChange, onModeToggle, onPreset,
+  onNext, onPrev, onPlayAll,
   toast,
 }) => {
   const [input, setInput] = useState('')
@@ -64,111 +94,176 @@ export const ControlPanel: React.FC<Props> = ({
   }
 
   const speeds: SpeedLevel[] = ['slow', 'medium', 'fast']
+  const isStepMode = mode === 'step'
+  // In step mode, disable operation buttons while a step-through is in progress
+  const opDisabled = isStepMode ? (stepInfo !== null) : isPlaying
+
+  // Choose the most descriptive active step (AVL wins due to rotation info)
+  const activeStep = stepInfo?.avlStep ?? stepInfo?.bstStep ?? null
 
   return (
-    <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex flex-wrap items-center gap-3">
-      {/* Input */}
-      <input
-        type="number"
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handle(onInsert)}
-        placeholder="Enter integer…"
-        disabled={isPlaying}
-        className="w-36 px-3 py-1.5 rounded bg-gray-900 border border-gray-600
-          text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-400
-          disabled:opacity-50"
-      />
+    <div className="bg-gray-800 border-b border-gray-700 flex flex-col">
 
-      {/* Operation buttons */}
-      <button
-        onClick={() => handle(onInsert)}
-        disabled={isPlaying || !input.trim()}
-        className="px-4 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-sm
-          font-medium disabled:opacity-40 transition-colors"
-      >
-        Insert
-      </button>
-      <button
-        onClick={() => handle(onDelete)}
-        disabled={isPlaying || !input.trim()}
-        className="px-4 py-1.5 rounded bg-red-700 hover:bg-red-600 text-white text-sm
-          font-medium disabled:opacity-40 transition-colors"
-      >
-        Delete
-      </button>
-      <button
-        onClick={() => handle(onSearch)}
-        disabled={isPlaying || !input.trim()}
-        className="px-4 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-sm
-          font-medium disabled:opacity-40 transition-colors"
-      >
-        Search
-      </button>
+      {/* ── Main controls row ───────────────────────────────────────────────── */}
+      <div className="px-4 py-2.5 flex flex-wrap items-center gap-2.5">
 
-      <div className="w-px h-6 bg-gray-600" />
+        {/* Input */}
+        <input
+          type="number"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !opDisabled && handle(onInsert)}
+          placeholder="Enter integer…"
+          disabled={opDisabled}
+          className="w-32 px-3 py-1.5 rounded bg-gray-900 border border-gray-600
+            text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-400
+            disabled:opacity-50"
+        />
 
-      {/* Speed */}
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <span>Speed:</span>
-        {speeds.map(s => (
-          <button
-            key={s}
-            onClick={() => onSpeedChange(s)}
-            className={`px-2 py-0.5 rounded text-xs font-medium capitalize transition-colors
-              ${speed === s
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div className="w-px h-6 bg-gray-600" />
-
-      {/* Presets */}
-      <div className="relative">
-        <button
-          onClick={() => setShowPresets(p => !p)}
-          disabled={isPlaying}
-          className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-200
-            font-medium disabled:opacity-40 transition-colors flex items-center gap-1"
-        >
-          Presets <span className="text-xs">▾</span>
+        <button onClick={() => handle(onInsert)} disabled={opDisabled || !input.trim()}
+          className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white text-sm
+            font-medium disabled:opacity-40 transition-colors">
+          Insert
         </button>
-        {showPresets && (
-          <div className="absolute left-0 top-full mt-1 z-20 w-60 bg-gray-800 border border-gray-600
-            rounded shadow-xl">
-            {PRESETS.map(p => (
-              <button
-                key={p.label}
-                onClick={() => { onPreset(p.values); setShowPresets(false) }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700 transition-colors"
-              >
-                <div className="text-sm font-medium text-gray-100">{p.label}</div>
-                <div className="text-xs text-gray-400">{p.description}</div>
-              </button>
-            ))}
-          </div>
+        <button onClick={() => handle(onDelete)} disabled={opDisabled || !input.trim()}
+          className="px-3 py-1.5 rounded bg-red-700 hover:bg-red-600 text-white text-sm
+            font-medium disabled:opacity-40 transition-colors">
+          Delete
+        </button>
+        <button onClick={() => handle(onSearch)} disabled={opDisabled || !input.trim()}
+          className="px-3 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-sm
+            font-medium disabled:opacity-40 transition-colors">
+          Search
+        </button>
+
+        <div className="w-px h-5 bg-gray-600" />
+
+        {/* Speed */}
+        <div className="flex items-center gap-1.5 text-sm text-gray-400">
+          <span className="text-xs">Speed:</span>
+          {speeds.map(s => (
+            <button key={s} onClick={() => onSpeedChange(s)}
+              className={`px-2 py-0.5 rounded text-xs font-medium capitalize transition-colors
+                ${speed === s
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>
+              {s}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-px h-5 bg-gray-600" />
+
+        {/* Mode toggle */}
+        <button
+          onClick={onModeToggle}
+          title={isStepMode ? 'Switch to auto-play' : 'Switch to step-through mode'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium
+            border transition-colors
+            ${isStepMode
+              ? 'bg-indigo-900 border-indigo-500 text-indigo-300'
+              : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}>
+          {isStepMode ? '⏸ Step Mode' : '▶ Auto'}
+        </button>
+
+        <div className="w-px h-5 bg-gray-600" />
+
+        {/* Presets */}
+        <div className="relative">
+          <button
+            onClick={() => setShowPresets(p => !p)}
+            disabled={opDisabled}
+            className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-200
+              font-medium disabled:opacity-40 transition-colors flex items-center gap-1">
+            Presets <span className="text-xs">▾</span>
+          </button>
+          {showPresets && (
+            <div className="absolute left-0 top-full mt-1 z-20 w-60 bg-gray-800 border border-gray-600
+              rounded shadow-xl">
+              {PRESETS.map(p => (
+                <button key={p.label}
+                  onClick={() => { onPreset(p.values); setShowPresets(false) }}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-700 transition-colors">
+                  <div className="text-sm font-medium text-gray-100">{p.label}</div>
+                  <div className="text-xs text-gray-400">{p.description}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button onClick={onReset}
+          className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-200
+            font-medium transition-colors">
+          Reset
+        </button>
+
+        {/* Toast */}
+        {toast && (
+          <span className="toast-slide-in ml-1 px-3 py-1 rounded-full bg-yellow-700 text-yellow-100
+            text-xs font-medium border border-yellow-500">
+            {toast}
+          </span>
         )}
       </div>
 
-      {/* Reset */}
-      <button
-        onClick={onReset}
-        className="px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-sm text-gray-200
-          font-medium transition-colors"
-      >
-        Reset
-      </button>
+      {/* ── Step-through controls bar (visible in step mode) ─────────────────── */}
+      {isStepMode && (
+        <div className="px-4 py-2 border-t border-gray-700 bg-gray-900/60 flex items-center gap-3">
 
-      {/* Toast */}
-      {toast && (
-        <span className="toast-slide-in ml-2 px-3 py-1 rounded-full bg-yellow-700 text-yellow-100
-          text-xs font-medium border border-yellow-500">
-          {toast}
-        </span>
+          {stepInfo ? (
+            <>
+              {/* Prev */}
+              <button
+                onClick={onPrev}
+                title="Previous step"
+                className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200
+                  text-sm font-medium transition-colors disabled:opacity-40 flex items-center gap-1"
+              >
+                ◄ Prev
+              </button>
+
+              {/* Step counter pill */}
+              <span className="px-3 py-0.5 rounded-full bg-gray-800 border border-gray-600
+                text-xs font-mono text-gray-300 tabular-nums">
+                Step {stepInfo.index} / {stepInfo.total}
+              </span>
+
+              {/* Next */}
+              <button
+                onClick={onNext}
+                title="Next step  (→)"
+                className="px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white
+                  text-sm font-medium transition-colors flex items-center gap-1"
+              >
+                Next ►
+              </button>
+
+              {/* Play All */}
+              <button
+                onClick={onPlayAll}
+                title="Auto-play remaining steps"
+                className="px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200
+                  text-sm font-medium transition-colors flex items-center gap-1"
+              >
+                ▶▶ Play All
+              </button>
+
+              {/* Step description */}
+              {activeStep && (
+                <span className={`text-sm font-medium ${stepAccent(activeStep)} ml-2`}>
+                  {describeStep(activeStep)}
+                </span>
+              )}
+            </>
+          ) : (
+            // No active animation — idle hint
+            <span className="text-xs text-gray-500 italic">
+              Step Mode active — do an operation, then use Next / Prev to walk through each step.
+              <span className="ml-2 text-gray-600">Tip: ← → arrow keys also work.</span>
+            </span>
+          )}
+        </div>
       )}
     </div>
   )
