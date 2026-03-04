@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/algorithms/avl.ts","./src/algorithms/bst.ts","./src/components/controlpanel.tsx","./src/components/infopanel.tsx","./src/components/rotationbadge.tsx","./src/components/treecanvas.tsx","./src/components/treevisualizer.tsx","./src/hooks/useanimationqueue.ts","./src/hooks/usetreelayout.ts","./src/types/tree.ts"],"version":"5.9.3"}
