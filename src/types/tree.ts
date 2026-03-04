@@ -14,6 +14,12 @@ export type StepType =
   | 'ROTATE'
   | 'REBALANCE'
   | 'TRAVERSE'      // in-order / pre-order / post-order traversal visit
+  | 'ARR_COMPARE'    // binary search midpoint comparison
+  | 'ARR_FOUND'      // element found
+  | 'ARR_NOT_FOUND'  // element not found
+  | 'ARR_DELETE'     // element marked for deletion
+  | 'ARR_SHIFT_PREP' // highlight elements about to shift (O(n) moment)
+  | 'ARR_SHIFT'      // final array after shift — CSS transition fires
 
 export type TraversalType = 'In-order' | 'Pre-order' | 'Post-order'
 
@@ -25,6 +31,10 @@ export interface AnimationStep {
   involvedNodes?: number[]      // other nodes participating in a rotation
   visitedPath?: number[]        // for TRAVERSE: values already visited before this node
   durationMultiplier?: number   // 1 = normal speed, 2.5 = 2.5× slower
+  arraySnapshot?: number[]      // array state at this step (for ARR_* steps)
+  activeIndex?: number          // index of primary element (for ARR_* steps)
+  shiftedValues?: number[]      // values that are physically shifting
+  opType?: 'insert' | 'delete' | 'search'  // which operation triggered this (for complexity badge highlight)
 }
 
 export type RotationType =

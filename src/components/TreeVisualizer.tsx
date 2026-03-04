@@ -2,10 +2,12 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { TreeNode, SpeedLevel, TreeInfo, TraversalType } from '../types/tree'
 import { bstInsert, bstDelete, bstSearch, treeHeight, nodeCount, inOrderTraversal, preOrderTraversal, postOrderTraversal } from '../algorithms/bst'
 import { avlInsert, avlDelete, avlSearch, getBalance } from '../algorithms/avl'
+import { sortedArrayInsert, sortedArrayDelete, sortedArraySearch } from '../algorithms/sortedArray'
 import { useAnimationQueue, AnimationMode } from '../hooks/useAnimationQueue'
 import { ControlPanel } from './ControlPanel'
 import { TreeCanvas } from './TreeCanvas'
 import { InfoPanel } from './InfoPanel'
+import { ArrayPanel } from './ArrayPanel'
 
 function computeInfo(root: TreeNode | null, lastOp: string, isAVL: boolean): TreeInfo {
   return {
@@ -29,6 +31,9 @@ export const TreeVisualizer: React.FC = () => {
 
   const bstAnim = useAnimationQueue(speed, mode)
   const avlAnim = useAnimationQueue(speed, mode)
+  const arrAnim = useAnimationQueue(speed, mode)
+
+  const [sortedArr, setSortedArr] = useState<number[]>([])
 
   const showToast = useCallback((msg: string) => {
     setToast(msg)
@@ -57,9 +62,13 @@ export const TreeVisualizer: React.FC = () => {
     avlAnim.play(avlResult.steps, () =>
       setAvlInfo(computeInfo(avlResult.root, `Inserted ${value}`, true)))
 
+    const arrResult = sortedArrayInsert(sortedArr, value)
+    setSortedArr(arrResult.arr)
+    arrAnim.play(arrResult.steps)
+
     setBstInfo(prev => ({ ...prev, lastOperation: `Inserting ${value}…` }))
     setAvlInfo(prev => ({ ...prev, lastOperation: `Inserting ${value}…` }))
-  }, [bstRoot, avlRoot, bstAnim, avlAnim, showToast])
+  }, [bstRoot, avlRoot, sortedArr, bstAnim, avlAnim, arrAnim, showToast])
 
   // ── Delete ─────────────────────────────────────────────────────────────────
 
@@ -77,9 +86,13 @@ export const TreeVisualizer: React.FC = () => {
     avlAnim.play(avlResult.steps, () =>
       setAvlInfo(computeInfo(avlResult.root, `Deleted ${value}`, true)))
 
+    const arrResult = sortedArrayDelete(sortedArr, value)
+    setSortedArr(arrResult.arr)
+    arrAnim.play(arrResult.steps)
+
     setBstInfo(prev => ({ ...prev, lastOperation: `Deleting ${value}…` }))
     setAvlInfo(prev => ({ ...prev, lastOperation: `Deleting ${value}…` }))
-  }, [bstRoot, avlRoot, bstAnim, avlAnim, showToast])
+  }, [bstRoot, avlRoot, sortedArr, bstAnim, avlAnim, arrAnim, showToast])
 
   // ── Search ─────────────────────────────────────────────────────────────────
 
@@ -95,9 +108,12 @@ export const TreeVisualizer: React.FC = () => {
     avlAnim.play(avlResult.steps, () =>
       setAvlInfo(computeInfo(avlRoot, found ? `Found ${value}` : `${value} not found`, true)))
 
+    const arrResult = sortedArraySearch(sortedArr, value)
+    arrAnim.play(arrResult.steps)
+
     setBstInfo(prev => ({ ...prev, lastOperation: `Searching ${value}…` }))
     setAvlInfo(prev => ({ ...prev, lastOperation: `Searching ${value}…` }))
-  }, [bstRoot, avlRoot, bstAnim, avlAnim, showToast])
+  }, [bstRoot, avlRoot, sortedArr, bstAnim, avlAnim, arrAnim, showToast])
 
   // ── Traversal ──────────────────────────────────────────────────────────────
 
@@ -125,18 +141,21 @@ export const TreeVisualizer: React.FC = () => {
   const handleReset = useCallback(() => {
     bstAnim.cancel()
     avlAnim.cancel()
+    arrAnim.cancel()
     setBstRoot(null)
     setAvlRoot(null)
+    setSortedArr([])
     setBstInfo({ height: 0, nodeCount: 0, balanceFactor: null, lastOperation: '' })
     setAvlInfo({ height: 0, nodeCount: 0, balanceFactor: null, lastOperation: '' })
     setToast(null)
-  }, [bstAnim, avlAnim])
+  }, [bstAnim, avlAnim, arrAnim])
 
   // ── Preset ─────────────────────────────────────────────────────────────────
 
   const handlePreset = useCallback((values: number[]) => {
     bstAnim.cancel()
     avlAnim.cancel()
+    arrAnim.cancel()
     let bst: TreeNode | null = null
     let avl: TreeNode | null = null
     for (const v of values) {
@@ -147,7 +166,10 @@ export const TreeVisualizer: React.FC = () => {
     setAvlRoot(avl)
     setBstInfo(computeInfo(bst, 'Loaded preset', false))
     setAvlInfo(computeInfo(avl, 'Loaded preset', true))
-  }, [bstAnim, avlAnim])
+    // Build sorted array from preset values (same values as trees)
+    const sortedPresetArr = [...values].sort((a, b) => a - b)
+    setSortedArr(sortedPresetArr)
+  }, [bstAnim, avlAnim, arrAnim])
 
   // ── Mode toggle ────────────────────────────────────────────────────────────
   // If switching to auto while a step-through is paused, resume auto-play.
@@ -159,27 +181,31 @@ export const TreeVisualizer: React.FC = () => {
         // Resume any paused step-through
         bstAnim.playAll()
         avlAnim.playAll()
+        arrAnim.playAll()
       }
       return next
     })
-  }, [bstAnim, avlAnim])
+  }, [bstAnim, avlAnim, arrAnim])
 
   // ── Step-through controls ─────────────────────────────────────────────────
 
   const handleNext = useCallback(() => {
     bstAnim.next()
     avlAnim.next()
-  }, [bstAnim, avlAnim])
+    arrAnim.next()
+  }, [bstAnim, avlAnim, arrAnim])
 
   const handlePrev = useCallback(() => {
     bstAnim.prev()
     avlAnim.prev()
-  }, [bstAnim, avlAnim])
+    arrAnim.prev()
+  }, [bstAnim, avlAnim, arrAnim])
 
   const handlePlayAll = useCallback(() => {
     bstAnim.playAll()
     avlAnim.playAll()
-  }, [bstAnim, avlAnim])
+    arrAnim.playAll()
+  }, [bstAnim, avlAnim, arrAnim])
 
   // ── Keyboard shortcuts (← → in step mode) ────────────────────────────────
 
@@ -197,13 +223,13 @@ export const TreeVisualizer: React.FC = () => {
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
-  const isPlaying = bstAnim.isPlaying || avlAnim.isPlaying
+  const isPlaying = bstAnim.isPlaying || avlAnim.isPlaying || arrAnim.isPlaying
 
   // stepInfo: null when nothing is queued, filled when a step-through is active
-  const totalSteps = Math.max(bstAnim.totalSteps, avlAnim.totalSteps)
-  const stepIndex  = Math.max(bstAnim.stepIndex,  avlAnim.stepIndex)
+  const totalSteps = Math.max(bstAnim.totalSteps, avlAnim.totalSteps, arrAnim.totalSteps)
+  const stepIndex  = Math.max(bstAnim.stepIndex,  avlAnim.stepIndex,  arrAnim.stepIndex)
   const stepInfo   = (mode === 'step' && isPlaying)
-    ? { bstStep: bstAnim.activeStep, avlStep: avlAnim.activeStep, index: stepIndex, total: totalSteps }
+    ? { bstStep: bstAnim.activeStep, avlStep: avlAnim.activeStep, arrStep: arrAnim.activeStep, index: stepIndex, total: totalSteps }
     : null
 
   return (
@@ -238,8 +264,11 @@ export const TreeVisualizer: React.FC = () => {
         toast={toast}
       />
 
+      {/* ArrayList */}
+      <ArrayPanel arr={sortedArr} activeStep={arrAnim.activeStep} speed={speed} />
+
       {/* Dual Tree Panel */}
-      <div className="flex flex-1 overflow-hidden divide-x divide-gray-700">
+      <div className="flex flex-1 overflow-hidden divide-x divide-gray-700 min-h-0">
         {/* BST */}
         <div className="flex flex-col flex-1 min-w-0">
           <div className="px-4 py-1.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">

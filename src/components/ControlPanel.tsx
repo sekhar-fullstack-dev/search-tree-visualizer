@@ -40,20 +40,34 @@ function describeStep(step: AnimationStep): string {
       const seq = [...(step.visitedPath ?? []), step.nodeValue]
       return `${step.label}: ${seq.join(' → ')}`
     }
+    case 'ARR_COMPARE':    return `Binary search: comparing ${step.nodeValue} (index ${step.activeIndex})`
+    case 'ARR_FOUND':      return `Found ${step.nodeValue} at index ${step.activeIndex} ✓`
+    case 'ARR_NOT_FOUND':  return `${step.nodeValue} not found in array`
+    case 'ARR_DELETE':     return `Removing ${step.nodeValue} from index ${step.activeIndex}`
+    case 'ARR_SHIFT_PREP': return step.label ?? 'Preparing to shift elements'
+    case 'ARR_SHIFT':      return step.opType === 'insert'
+      ? `Inserted — shifted ${step.shiftedValues?.length ?? 0} element${(step.shiftedValues?.length ?? 0) !== 1 ? 's' : ''}`
+      : `Deleted — shifted ${step.shiftedValues?.length ?? 0} element${(step.shiftedValues?.length ?? 0) !== 1 ? 's' : ''} left`
   }
 }
 
 // Color accent per step type for the step bar
 function stepAccent(step: AnimationStep): string {
   switch (step.type) {
-    case 'VISIT':     return 'text-yellow-400'
-    case 'INSERT':    return 'text-emerald-400'
-    case 'DELETE':    return 'text-red-400'
-    case 'FOUND':     return 'text-green-400'
-    case 'NOT_FOUND': return 'text-red-400'
-    case 'ROTATE':    return 'text-violet-400'
-    case 'REBALANCE': return 'text-indigo-400'
-    case 'TRAVERSE':  return 'text-cyan-400'
+    case 'VISIT':          return 'text-yellow-400'
+    case 'INSERT':         return 'text-emerald-400'
+    case 'DELETE':         return 'text-red-400'
+    case 'FOUND':          return 'text-green-400'
+    case 'NOT_FOUND':      return 'text-red-400'
+    case 'ROTATE':         return 'text-violet-400'
+    case 'REBALANCE':      return 'text-indigo-400'
+    case 'TRAVERSE':       return 'text-cyan-400'
+    case 'ARR_COMPARE':    return 'text-yellow-400'
+    case 'ARR_FOUND':      return 'text-emerald-400'
+    case 'ARR_NOT_FOUND':  return 'text-red-400'
+    case 'ARR_DELETE':     return 'text-red-400'
+    case 'ARR_SHIFT_PREP': return 'text-amber-400'
+    case 'ARR_SHIFT':      return 'text-amber-400'
   }
 }
 
@@ -62,7 +76,7 @@ interface Props {
   mode: AnimationMode
   isPlaying: boolean
   // step-through info (null when no animation is queued)
-  stepInfo: { bstStep: AnimationStep | null; avlStep: AnimationStep | null; index: number; total: number } | null
+  stepInfo: { bstStep: AnimationStep | null; avlStep: AnimationStep | null; arrStep: AnimationStep | null; index: number; total: number } | null
   onInsert: (v: number) => void
   onDelete: (v: number) => void
   onSearch: (v: number) => void
@@ -110,8 +124,14 @@ export const ControlPanel: React.FC<Props> = ({
   // In step mode, disable operation buttons while a step-through is in progress
   const opDisabled = isStepMode ? (stepInfo !== null) : isPlaying
 
-  // Choose the most descriptive active step (AVL wins due to rotation info)
-  const activeStep = stepInfo?.avlStep ?? stepInfo?.bstStep ?? null
+  // Pick most informative step: prefer ARR_SHIFT_PREP, then AVL (rotations), then BST, then array others
+  const activeStep = (() => {
+    if (!stepInfo) return null
+    const { avlStep, bstStep, arrStep } = stepInfo
+    if (arrStep?.type === 'ARR_SHIFT_PREP' || arrStep?.type === 'ARR_SHIFT') return arrStep
+    if (avlStep?.type === 'ROTATE' || avlStep?.type === 'REBALANCE') return avlStep
+    return avlStep ?? bstStep ?? arrStep
+  })()
 
   return (
     <div className="bg-gray-800 border-b border-gray-700 flex flex-col">
